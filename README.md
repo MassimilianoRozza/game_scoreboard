@@ -42,7 +42,7 @@ A modern, lightweight, and secure web application built with **Flask** and **Tai
 ## 🚀 Deployment Guide (via Docker)
 
 ### 1. Prerequisites
-Ensure your VPS (Virtual Private Server) has **Docker** and **Docker Compose** installed.
+Ensure your host has **Docker** and **Docker Compose** installed.
 
 ### 2. Project Structure
 Make sure your project folder contains:
@@ -72,9 +72,7 @@ The application will be accessible on port `5000` (`http://<YOUR_VPS_IP>:5000`).
 ---
 
 ## 🔒 Security & Firewall (Oracle Cloud / VPS Note)
-If you are hosting on Oracle Cloud (OCI) or a VPS with strict firewall defaults, remember to:
-1. Open port `5000` in your **Cloud Security List / Ingress Rules** (CIDR `0.0.0.0/0`).
-2. Allow port `5000` in your server firewall (`iptables` / `ufw`).
+If you are hosting on a machine with strict firewall defaults, remember to allow port `5000` in your server firewall (`iptables` / `ufw`).
 
 ---
 
