@@ -8,6 +8,10 @@
     const addButton = document.getElementById("add-player");
     const form = document.getElementById("match-form");
     const knownData = document.getElementById("known-players-data");
+    const submitButton = document.getElementById("submit-match");
+
+    // A match needs at least two players to be meaningful.
+    const MIN_PLAYERS = 2;
 
     if (!container || !template || !addButton) {
         return;
@@ -85,6 +89,30 @@
         dropdown.classList.remove("hidden");
     }
 
+    function filledPlayerCount() {
+        let count = 0;
+        for (const input of container.querySelectorAll("input[name='player_name[]']")) {
+            if (input.value.trim()) {
+                count += 1;
+            }
+        }
+        return count;
+    }
+
+    function updateSubmitState() {
+        if (!submitButton) {
+            return;
+        }
+        const count = filledPlayerCount();
+        const enabled = count >= MIN_PLAYERS;
+        submitButton.disabled = !enabled;
+        submitButton.classList.toggle("opacity-50", !enabled);
+        submitButton.classList.toggle("cursor-not-allowed", !enabled);
+        submitButton.title = enabled
+            ? ""
+            : "Servono almeno " + MIN_PLAYERS + " giocatori per registrare una partita";
+    }
+
     function applyWinner(row, isWinner) {
         const button = row.querySelector(".winner-toggle");
         const flag = row.querySelector("input[name='player_winner[]']");
@@ -123,6 +151,7 @@
         const input = picker.querySelector(".player-search");
         input.value = name;
         picker.querySelector(".player-dropdown").classList.add("hidden");
+        updateSubmitState();
         focusPoints(input.closest(".player-row"));
     }
 
@@ -135,6 +164,7 @@
         }
         container.appendChild(fragment);
         applyWinner(row, false);
+        updateSubmitState();
         (name ? row.querySelector("input[name='player_points[]']") : nameInput).focus();
         if (!name) {
             renderDropdown(row.querySelector(".player-picker"));
@@ -145,6 +175,9 @@
     addButton.addEventListener("click", function () {
         createRow("");
     });
+
+    // Reflect the initial state (the first empty row means the button starts off).
+    updateSubmitState();
 
     // Dropdown interactions (delegated on the container).
     container.addEventListener("click", function (event) {
@@ -158,6 +191,7 @@
         if (removeBtn) {
             if (container.getElementsByClassName("player-row").length > 1) {
                 removeBtn.closest(".player-row").remove();
+                updateSubmitState();
             } else {
                 alert("Devi includere almeno un giocatore.");
             }
@@ -194,6 +228,7 @@
     container.addEventListener("input", function (event) {
         if (event.target.matches(".player-search")) {
             renderDropdown(event.target.closest(".player-picker"));
+            updateSubmitState();
         }
     });
 

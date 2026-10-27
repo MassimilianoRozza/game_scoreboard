@@ -18,6 +18,9 @@ from .storage import Storage
 #: Session key holding queued flash messages as (category, message) pairs.
 FLASH_SESSION_KEY = "flashes"
 
+#: Minimum number of players required to register a match (mirrors match-form.js).
+MIN_PLAYERS_PER_MATCH = 2
+
 
 def _getlist(form: FormData, key: str) -> list[str]:
     """Return the form values for ``key`` as strings, ignoring uploaded files."""
@@ -158,7 +161,7 @@ def create_router(
             stats.history.append(pts)
             updated_count += 1
 
-        if updated_count > 0:
+        if updated_count >= MIN_PLAYERS_PER_MATCH:
             storage.save(data)
             flash(
                 request,
@@ -166,7 +169,11 @@ def create_router(
                 "success",
             )
         else:
-            flash(request, "Nessun dato valido inserito.", "warning")
+            flash(
+                request,
+                f"Servono almeno {MIN_PLAYERS_PER_MATCH} giocatori per registrare una partita.",
+                "warning",
+            )
 
         if duplicates:
             flash(
