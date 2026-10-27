@@ -85,12 +85,45 @@
         dropdown.classList.remove("hidden");
     }
 
+    function applyWinner(row, isWinner) {
+        const button = row.querySelector(".winner-toggle");
+        const flag = row.querySelector("input[name='player_winner[]']");
+        const points = row.querySelector("input[name='player_points[]']");
+        const badge = row.querySelector(".win-badge");
+
+        flag.value = isWinner ? "1" : "0";
+        button.setAttribute("aria-pressed", isWinner ? "true" : "false");
+        button.classList.toggle("bg-yellow-100", isWinner);
+        button.classList.toggle("opacity-40", !isWinner);
+        // Hidden inputs still submit, so the parallel arrays stay aligned.
+        points.classList.toggle("hidden", isWinner);
+        points.required = !isWinner;
+        badge.classList.toggle("hidden", !isWinner);
+    }
+
+    function toggleWinner(row) {
+        const wasWinner = row.querySelector("input[name='player_winner[]']").value === "1";
+        for (const other of container.querySelectorAll(".player-row")) {
+            applyWinner(other, false);
+        }
+        // Only one winner per match; clicking again clears it (a match may have none).
+        if (!wasWinner) {
+            applyWinner(row, true);
+        }
+    }
+
+    function focusPoints(row) {
+        const points = row.querySelector("input[name='player_points[]']");
+        if (!points.classList.contains("hidden")) {
+            points.focus();
+        }
+    }
+
     function selectName(picker, name) {
         const input = picker.querySelector(".player-search");
         input.value = name;
         picker.querySelector(".player-dropdown").classList.add("hidden");
-        const points = input.closest(".player-row").querySelector("input[name='player_points[]']");
-        points.focus();
+        focusPoints(input.closest(".player-row"));
     }
 
     function createRow(name) {
@@ -101,6 +134,7 @@
             nameInput.value = name;
         }
         container.appendChild(fragment);
+        applyWinner(row, false);
         (name ? row.querySelector("input[name='player_points[]']") : nameInput).focus();
         if (!name) {
             renderDropdown(row.querySelector(".player-picker"));
@@ -114,6 +148,12 @@
 
     // Dropdown interactions (delegated on the container).
     container.addEventListener("click", function (event) {
+        const winnerBtn = event.target.closest(".winner-toggle");
+        if (winnerBtn) {
+            toggleWinner(winnerBtn.closest(".player-row"));
+            return;
+        }
+
         const removeBtn = event.target.closest(".remove-row");
         if (removeBtn) {
             if (container.getElementsByClassName("player-row").length > 1) {

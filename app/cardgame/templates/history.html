@@ -61,5 +61,5 @@
 
 {% block scripts %}
     <script id="trend-data" type="application/json">{{ chart_rows | tojson }}</script>
-    <script src="{{ url_for('static', filename='js/trend-chart.js') }}" defer></script>
+    <script src="{{ url_for('static', path='/js/trend-chart.js') }}" defer></script>
 {% endblock %}

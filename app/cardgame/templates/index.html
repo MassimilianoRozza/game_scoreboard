@@ -19,17 +19,15 @@
         </div>
         {% endif %}
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            <div class="space-y-2">
-              {% for category, message in messages %}
-                <div class="p-4 rounded-lg text-white {% if category == 'danger' %}bg-red-500{% elif category == 'success' %}bg-green-500{% else %}bg-yellow-500{% endif %}">
-                  {{ message }}
-                </div>
-              {% endfor %}
-            </div>
-          {% endif %}
-        {% endwith %}
+        {% if flashes %}
+          <div class="space-y-2">
+            {% for category, message in flashes %}
+              <div class="p-4 rounded-lg text-white {% if category == 'danger' %}bg-red-500{% elif category == 'success' %}bg-green-500{% else %}bg-yellow-500{% endif %}">
+                {{ message }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
 
         <!-- Bayesian Leaderboard Table with Horizontal Scroll for Mobile -->
         <div class="bg-white shadow-md rounded-lg overflow-hidden">
@@ -98,7 +96,10 @@
                             </button>
                             <ul class="player-dropdown hidden absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"></ul>
                         </div>
-                        <input type="number" step="any" name="player_points[]" placeholder="Punti (es. 15 o -5)" required class="w-40 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="hidden" name="player_winner[]" value="0">
+                        <button type="button" title="Segna come vincitore ({{ win_points|int }} punti)" class="winner-toggle opacity-40 text-xl px-1 py-2 rounded hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-yellow-400" aria-pressed="false">🏆</button>
+                        <span class="win-badge hidden w-16 text-center font-bold text-green-700">{{ win_points|int }}</span>
+                        <input type="number" min="0" step="any" name="player_points[]" placeholder="Punti (0 o più)" required class="w-40 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <button type="button" class="remove-row bg-red-100 text-red-600 px-3 py-2 rounded hover:bg-red-200">Rimuovi</button>
                     </div>
                 </div>
@@ -112,7 +113,10 @@
                             </button>
                             <ul class="player-dropdown hidden absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"></ul>
                         </div>
-                        <input type="number" step="any" name="player_points[]" placeholder="Punti (es. 15 o -5)" required class="w-40 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="hidden" name="player_winner[]" value="0">
+                        <button type="button" title="Segna come vincitore ({{ win_points|int }} punti)" class="winner-toggle opacity-40 text-xl px-1 py-2 rounded hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-yellow-400" aria-pressed="false">🏆</button>
+                        <span class="win-badge hidden w-16 text-center font-bold text-green-700">{{ win_points|int }}</span>
+                        <input type="number" min="0" step="any" name="player_points[]" placeholder="Punti (0 o più)" required class="w-40 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <button type="button" class="remove-row bg-red-100 text-red-600 px-3 py-2 rounded hover:bg-red-200">Rimuovi</button>
                     </div>
                 </template>
@@ -169,5 +173,5 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="{{ url_for('static', filename='js/match-form.js') }}" defer></script>
+    <script src="{{ url_for('static', path='/js/match-form.js') }}" defer></script>
 {% endblock %}
