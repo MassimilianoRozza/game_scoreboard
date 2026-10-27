@@ -1,0 +1,9 @@
+<nav class="bg-gray-800 text-white shadow mb-6">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+        <span class="font-bold text-lg">🃏 Card Game Tracker</span>
+        <div class="space-x-1 sm:space-x-2">
+            <a href="{{ url_for('main.index') }}" class="px-2 sm:px-3 py-2 rounded text-xs sm:text-sm font-medium {% if active_tab == 'bayesian' %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700{% endif %}">Classifica Bayesiana</a>
+            <a href="{{ url_for('main.history_view') }}" class="px-2 sm:px-3 py-2 rounded text-xs sm:text-sm font-medium {% if active_tab == 'history' %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700{% endif %}">Storico & Trend</a>
+        </div>
+    </div>
+</nav>

@@ -2,10 +2,8 @@ FROM python:3.13-slim AS app
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY . .
 RUN pip install --no-cache-dir -r requirements.txt
-
-COPY app.py .
 
 # Switch to user
 RUN useradd -m app

@@ -3,10 +3,11 @@ services:
     build: ./app
     container_name: card_game_server
     restart: always
+    user: "${UID}:${GID}"
     ports:
       - "5000:5000"
     environment:
       - SECRET_KEY=secret_key
-      - ADMIN_PASSWORD=yourPassword
+      - ADMIN_PASSWORD="${ADMIN_PASSWORD:-yourPassword}"
     volumes:
       - ./data:/app/data

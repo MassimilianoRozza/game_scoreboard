@@ -11,11 +11,12 @@
   "workspaceFolder": "/app",
   "overrideCommand": true,
   "shutdownAction": "stopCompose",
+  "remoteUser": "app",
   "updateRemoteUserUID": true,
   "features": {
     "ghcr.io/devcontainers/features/git:1": {},
     "ghcr.io/devcontainers/features/common-utils:2": {
-      "username": "dev",
+      "username": "app",
       "userUid": "${localEnv:UID}",
       "userGid": "${localEnv:GID}"
     }
