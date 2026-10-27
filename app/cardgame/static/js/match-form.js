@@ -17,7 +17,10 @@
         return;
     }
 
-    const knownPlayers = knownData ? JSON.parse(knownData.textContent) : [];
+    // The server sends players ordered by official rank; the dropdown shows them
+    // alphabetically instead (case-insensitive, locale-aware).
+    const knownPlayers = (knownData ? JSON.parse(knownData.textContent) : [])
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 
     // A match may have several winners: a lone winner takes the fixed winning
     // score, but when more than one player wins nobody gains, so they all score
