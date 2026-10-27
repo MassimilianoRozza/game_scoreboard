@@ -19,6 +19,13 @@
 
     const knownPlayers = knownData ? JSON.parse(knownData.textContent) : [];
 
+    // A match may have several winners: a lone winner takes the fixed winning
+    // score, but when more than one player wins nobody gains, so they all score
+    // 0 (mirrors the server-side rule in routes.py).
+    const initialBadge = container.querySelector(".win-badge");
+    const WIN_POINTS_LABEL = initialBadge ? initialBadge.textContent.trim() : "";
+    const TIE_POINTS_LABEL = "0";
+
     function nameInOtherRows(name, exceptInput) {
         const target = name.trim().toLowerCase();
         if (!target) {
@@ -113,6 +120,24 @@
             : "Servono almeno " + MIN_PLAYERS + " giocatori per registrare una partita";
     }
 
+    function winnerCount() {
+        let count = 0;
+        for (const flag of container.querySelectorAll("input[name='player_winner[]']")) {
+            if (flag.value === "1") {
+                count += 1;
+            }
+        }
+        return count;
+    }
+
+    // Keep every winner badge showing the score that will actually be recorded.
+    function updateWinBadges() {
+        const label = winnerCount() === 1 ? WIN_POINTS_LABEL : TIE_POINTS_LABEL;
+        for (const badge of container.querySelectorAll(".win-badge")) {
+            badge.textContent = label;
+        }
+    }
+
     function applyWinner(row, isWinner) {
         const button = row.querySelector(".winner-toggle");
         const flag = row.querySelector("input[name='player_winner[]']");
@@ -131,13 +156,10 @@
 
     function toggleWinner(row) {
         const wasWinner = row.querySelector("input[name='player_winner[]']").value === "1";
-        for (const other of container.querySelectorAll(".player-row")) {
-            applyWinner(other, false);
-        }
-        // Only one winner per match; clicking again clears it (a match may have none).
-        if (!wasWinner) {
-            applyWinner(row, true);
-        }
+        // Any number of players may win the same match; clicking again clears
+        // that row's flag without touching the others.
+        applyWinner(row, !wasWinner);
+        updateWinBadges();
     }
 
     function focusPoints(row) {
@@ -164,6 +186,7 @@
         }
         container.appendChild(fragment);
         applyWinner(row, false);
+        updateWinBadges();
         updateSubmitState();
         (name ? row.querySelector("input[name='player_points[]']") : nameInput).focus();
         if (!name) {
@@ -191,6 +214,7 @@
         if (removeBtn) {
             if (container.getElementsByClassName("player-row").length > 1) {
                 removeBtn.closest(".player-row").remove();
+                updateWinBadges();
                 updateSubmitState();
             } else {
                 alert("Devi includere almeno un giocatore.");

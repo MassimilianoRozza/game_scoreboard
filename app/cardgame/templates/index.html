@@ -97,9 +97,9 @@
                             <ul class="player-dropdown hidden absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"></ul>
                         </div>
                         <input type="hidden" name="player_winner[]" value="0">
-                        <button type="button" title="Segna come vincitore ({{ win_points|int }} punti)" class="winner-toggle opacity-40 text-xl px-1 py-2 rounded hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-yellow-400" aria-pressed="false">🏆</button>
+                        <button type="button" title="Segna come vincitore ({{ win_points|int }} punti, 0 se vincono in più)" class="winner-toggle opacity-40 text-xl px-1 py-2 rounded hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-yellow-400" aria-pressed="false">🏆</button>
                         <span class="win-badge hidden w-16 text-center font-bold text-green-700">{{ win_points|int }}</span>
-                        <input type="number" min="0" step="any" name="player_points[]" placeholder="Punti (0 o più)" required class="w-40 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="number" min="1" step="1" name="player_points[]" placeholder="Punti (più di 0)" required class="w-40 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <button type="button" class="remove-row bg-red-100 text-red-600 px-3 py-2 rounded hover:bg-red-200">Rimuovi</button>
                     </div>
                 </div>
@@ -114,9 +114,9 @@
                             <ul class="player-dropdown hidden absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"></ul>
                         </div>
                         <input type="hidden" name="player_winner[]" value="0">
-                        <button type="button" title="Segna come vincitore ({{ win_points|int }} punti)" class="winner-toggle opacity-40 text-xl px-1 py-2 rounded hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-yellow-400" aria-pressed="false">🏆</button>
+                        <button type="button" title="Segna come vincitore ({{ win_points|int }} punti, 0 se vincono in più)" class="winner-toggle opacity-40 text-xl px-1 py-2 rounded hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-yellow-400" aria-pressed="false">🏆</button>
                         <span class="win-badge hidden w-16 text-center font-bold text-green-700">{{ win_points|int }}</span>
-                        <input type="number" min="0" step="any" name="player_points[]" placeholder="Punti (0 o più)" required class="w-40 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="number" min="1" step="1" name="player_points[]" placeholder="Punti (più di 0)" required class="w-40 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <button type="button" class="remove-row bg-red-100 text-red-600 px-3 py-2 rounded hover:bg-red-200">Rimuovi</button>
                     </div>
                 </template>

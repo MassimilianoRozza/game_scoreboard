@@ -123,7 +123,10 @@ def create_router(
         points_list = _getlist(form, "player_points[]")
         winners_list = _getlist(form, "player_winner[]")
 
-        updated_count = 0
+        # First pass: validate the entries. A winner's score depends on how many
+        # winners the match has, so it is only resolved in the second pass.
+        scored: list[tuple[str, float]] = []
+        winners: list[str] = []
         seen: set[str] = set()
         duplicates: list[str] = []
         invalid: list[str] = []
@@ -141,25 +144,34 @@ def create_router(
             seen.add(key)
 
             if winner_flag == "1":
-                # The winner always gets the fixed winning score.
-                pts = WIN_POINTS
-            else:
-                try:
-                    pts = float(pts_str)
-                except ValueError:
-                    invalid.append(name)
-                    continue
-                if pts < 0:
-                    # Only the winner may have negative points.
-                    invalid.append(name)
-                    continue
+                winners.append(name)
+                continue
 
+            try:
+                pts = float(pts_str)
+            except ValueError:
+                invalid.append(name)
+                continue
+            # Losers must enter a whole number of points strictly greater than
+            # zero (mirrors the min="1" step="1" input in index.html).
+            if pts <= 0 or not pts.is_integer():
+                invalid.append(name)
+                continue
+            scored.append((name, pts))
+
+        # A lone winner takes the fixed winning score; when several players win
+        # together nobody gains, so each of them scores 0.
+        win_pts = WIN_POINTS if len(winners) == 1 else 0.0
+        scored.extend((name, win_pts) for name in winners)
+
+        for name, pts in scored:
             stats = data.get(name)
             if stats is None:
                 stats = PlayerStats()
                 data[name] = stats
             stats.history.append(pts)
-            updated_count += 1
+
+        updated_count = len(scored)
 
         if updated_count >= MIN_PLAYERS_PER_MATCH:
             storage.save(data)
@@ -185,7 +197,8 @@ def create_router(
         if invalid:
             flash(
                 request,
-                "Punti non validi (i perdenti devono avere almeno 0 punti): "
+                "Punti non validi (i perdenti devono avere un numero intero di "
+                "punti maggiore di 0): "
                 + ", ".join(dict.fromkeys(invalid)),
                 "warning",
             )
