@@ -28,10 +28,14 @@ def create_blueprint(storage: Storage, config: Config) -> Blueprint:
         global_stats = compute_global_stats(data)
         leaderboards = build_leaderboards(data, global_stats)
 
+        # Names ordered by official (Bayesian) rank, used by the quick-pick chips.
+        known_players: list[str] = [row.name for row in leaderboards.bayesian]
+
         return render_template(
             "index.html",
             bayesian_leaderboard=leaderboards.bayesian,
             raw_leaderboard=leaderboards.raw,
+            known_players=known_players,
             global_mean=round(global_stats.mean, 2),
             C=round(global_stats.c, 2),
             max_matches=global_stats.max_matches,
@@ -65,6 +69,8 @@ def create_blueprint(storage: Storage, config: Config) -> Blueprint:
         points_list = request.form.getlist("player_points[]")
 
         updated_count = 0
+        seen: set[str] = set()
+        duplicates: list[str] = []
         for name, pts_str in zip(names, points_list):
             name = name.strip()
             if not name:
@@ -73,6 +79,14 @@ def create_blueprint(storage: Storage, config: Config) -> Blueprint:
                 pts = float(pts_str)
             except ValueError:
                 continue
+
+            # A player can only play one match per submission (case-insensitive,
+            # mirroring the client-side duplicate guard).
+            key = name.lower()
+            if key in seen:
+                duplicates.append(name)
+                continue
+            seen.add(key)
 
             stats = data.get(name)
             if stats is None:
@@ -86,6 +100,13 @@ def create_blueprint(storage: Storage, config: Config) -> Blueprint:
             flash(f"Punteggi aggiornati con successo per {updated_count} giocatore/i!", "success")
         else:
             flash("Nessun dato valido inserito.", "warning")
+
+        if duplicates:
+            flash(
+                "Giocatore duplicato nella stessa partita (ignorato): "
+                + ", ".join(dict.fromkeys(duplicates)),
+                "warning",
+            )
 
         return redirect(url_for("main.index"))
 
