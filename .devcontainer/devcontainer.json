@@ -1,0 +1,40 @@
+{
+  "name": "Card game",
+  "dockerComposeFile": [
+    "../docker-compose.yaml",
+    "./docker-compose.devcontainer.yaml"
+  ],
+  "service": "card-game-tracker",
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/app,type=bind"
+  ],
+  "workspaceFolder": "/app",
+  "overrideCommand": true,
+  "shutdownAction": "stopCompose",
+  "updateRemoteUserUID": true,
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "username": "dev",
+      "userUid": "${localEnv:UID}",
+      "userGid": "${localEnv:GID}"
+    }
+  },
+  "containerEnv": {
+    "DEV": "true",
+    "SHELL": "/bin/bash"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vivaxy.vscode-conventional-commits",
+        "fanaticpythoner.better-todo-tree",
+        "ms-python.vscode-pylance",
+        "ms-python.python"
+      ],
+      "settings": {
+        "python.analysis.typeCheckingMode": "strict"
+      }
+    }
+  }
+}

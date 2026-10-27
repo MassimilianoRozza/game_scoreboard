@@ -1,0 +1,5 @@
+name: app
+
+services:
+  card-game-tracker:
+    restart: "no"
