@@ -10,6 +10,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
 from .config import Config
+from .alfredo_routes import create_alfredo_router
 from .routes import create_router
 from .storage import Storage
 
@@ -32,4 +33,5 @@ def create_app(config: Config | None = None) -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(_PACKAGE_DIR / "static")), name="static")
 
     app.include_router(create_router(Storage(app_config.data_file), app_config, templates))
+    app.include_router(create_alfredo_router(templates))
     return app
