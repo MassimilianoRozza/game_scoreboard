@@ -1,0 +1,58 @@
+name: Build and Publish Docker Image
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          # metadata-action lowercases the name, as ghcr.io requires
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            # latest on the default branch (main)
+            type=raw,value=latest,enable={{is_default_branch}}
+            # branch name, e.g. main
+            type=ref,event=branch
+            # git tag name, e.g. v1.2.3
+            type=ref,event=tag
+            # release tag name, e.g. v1.2.3
+            type=ref,event=release
+            # immutable commit tag, e.g. sha-1d2d3f4
+            type=sha
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          # the Dockerfile lives in ./app, same as docker-compose.yaml ("build: ./app")
+          context: ./app
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
