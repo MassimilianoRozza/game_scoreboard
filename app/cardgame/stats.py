@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from .models import GlobalStats, HistoryRow, Leaderboards, PlayerRow, ScoreData
+from .models import (
+    PLACEHOLDER_ABSENT,
+    GlobalStats,
+    HistoryRow,
+    Leaderboards,
+    PlayerRow,
+    ScoreData,
+)
 
 #: Fraction of the most prolific player's match count used as Bayesian weight C.
 C_FRACTION = 0.3
@@ -18,16 +25,21 @@ def bayesian_average(total_points: float, matches: int, c: float, mean: float) -
     return mean
 
 
+def _numeric_points(history: list[float | str]) -> list[float]:
+    """Filter out placeholders, returning only numeric scores."""
+    return [pts for pts in history if isinstance(pts, (int, float))]
+
+
 def compute_global_stats(data: ScoreData) -> GlobalStats:
     """Global mean M over every recorded match, and the regularization weight C."""
     all_points: list[float] = []
     max_matches = 0
 
     for stats in data.values():
-        history = stats.history
-        if len(history) > max_matches:
-            max_matches = len(history)
-        all_points.extend(history)
+        numeric = _numeric_points(stats.history)
+        if len(numeric) > max_matches:
+            max_matches = len(numeric)
+        all_points.extend(numeric)
 
     mean = (sum(all_points) / len(all_points)) if all_points else 0.0
     c = max(C_FRACTION * max_matches, 1.0) if max_matches > 0 else 1.0
@@ -40,9 +52,9 @@ def build_leaderboards(data: ScoreData, stats: GlobalStats) -> Leaderboards:
     raw_leaderboard: list[PlayerRow] = []
 
     for player, player_stats in data.items():
-        history = player_stats.history
-        matches = len(history)
-        total_points = sum(history)
+        numeric = _numeric_points(player_stats.history)
+        matches = len(numeric)
+        total_points = sum(numeric)
         raw_avg = (total_points / matches) if matches > 0 else 0.0
         bayes_avg = bayesian_average(total_points, matches, stats.c, stats.mean)
 
@@ -90,7 +102,7 @@ def assign_badges(rows: list[PlayerRow]) -> None:
 
 
 def build_history_rows(data: ScoreData) -> tuple[list[HistoryRow], int]:
-    """Per-player history rows sorted by raw average, plus the max match count."""
+    """Per-player history rows sorted by raw average, plus the global match count."""
     leaderboard: list[HistoryRow] = []
     max_matches = 0
 
@@ -99,8 +111,9 @@ def build_history_rows(data: ScoreData) -> tuple[list[HistoryRow], int]:
         if len(history) > max_matches:
             max_matches = len(history)
 
-        matches = len(history)
-        total_points = sum(history)
+        numeric = _numeric_points(history)
+        matches = len(numeric)
+        total_points = sum(numeric)
         avg = (total_points / matches) if matches > 0 else 0.0
         leaderboard.append(HistoryRow(name=player, average=round(avg, 2), history=list(history)))
 

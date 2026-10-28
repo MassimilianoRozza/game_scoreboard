@@ -23,7 +23,8 @@
         borderColor: colors[index % colors.length],
         backgroundColor: colors[index % colors.length],
         tension: 0.1,
-        fill: false
+        fill: false,
+        spanGaps: true
     }));
 
     new Chart(canvas.getContext("2d"), {

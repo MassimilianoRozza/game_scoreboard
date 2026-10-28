@@ -7,12 +7,15 @@ from dataclasses import dataclass, field
 #: In-memory representation of ``scores.json``: player name -> stats.
 ScoreData = dict[str, "PlayerStats"]
 
+#: Placeholder value for an existing player who did not play in a match.
+PLACEHOLDER_ABSENT = "-"
+
 
 @dataclass
 class PlayerStats:
     """Persisted state of a single player: the ordered list of match scores."""
 
-    history: list[float] = field(default_factory=list)
+    history: list[float | str] = field(default_factory=list)
 
     def to_json_dict(self) -> dict[str, object]:
         """Serialise back to the on-disk JSON shape."""
@@ -39,11 +42,14 @@ class HistoryRow:
 
     name: str
     average: float
-    history: list[float]
+    history: list[float | str]
 
     def to_json_dict(self) -> dict[str, object]:
         """Serialise the row for the Chart.js payload."""
-        return {"name": self.name, "history": list(self.history)}
+        return {
+            "name": self.name,
+            "history": [None if item == PLACEHOLDER_ABSENT else item for item in self.history],
+        }
 
 
 @dataclass(frozen=True)

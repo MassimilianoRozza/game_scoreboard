@@ -7,33 +7,40 @@ import os
 from pathlib import Path
 from typing import Any
 
-from .models import PlayerStats, ScoreData
+from .models import PLACEHOLDER_ABSENT, PlayerStats, ScoreData
 
 
-def _as_float(value: object) -> float | None:
-    """Return ``value`` as a float, rejecting bools and non-numeric types."""
+def _as_score(value: object) -> float | str | None:
+    """Return ``value`` as a float score, a placeholder string, or None if invalid."""
     if isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
         return float(value)
+    if isinstance(value, str) and value.strip() == PLACEHOLDER_ABSENT:
+        return PLACEHOLDER_ABSENT
     return None
 
 
-def _normalize_history(entry: dict[str, object]) -> list[float]:
+def _normalize_history(entry: dict[str, object]) -> list[float | str]:
     """Extract a valid ``history`` list from one raw JSON player entry."""
     raw_history = entry.get("history")
     if isinstance(raw_history, list):
-        history: list[float] = []
+        history: list[float | str] = []
         for item in raw_history:
-            points = _as_float(item)
-            if points is not None:
-                history.append(points)
+            score = _as_score(item)
+            if score is not None:
+                history.append(score)
         return history
 
     # Legacy shape: {"matches": int, "total_points": float} -> synthetic history.
-    matches = _as_float(entry.get("matches"))
-    total_points = _as_float(entry.get("total_points"))
-    if matches is not None and total_points is not None and matches > 0 and total_points != 0:
+    matches = _as_score(entry.get("matches"))
+    total_points = _as_score(entry.get("total_points"))
+    if (
+        isinstance(matches, float)
+        and isinstance(total_points, float)
+        and matches > 0
+        and total_points != 0
+    ):
         avg_val = round(total_points / matches, 2)
         return [avg_val] * int(matches)
     return []

@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.datastructures import FormData
 
 from .config import Config
-from .models import PlayerStats
+from .models import PLACEHOLDER_ABSENT, PlayerStats
 from .stats import WIN_POINTS, build_history_rows, build_leaderboards, compute_global_stats
 from .storage import Storage
 
@@ -164,16 +164,33 @@ def create_router(
         win_pts = WIN_POINTS if len(winners) == 1 else 0.0
         scored.extend((name, win_pts) for name in winners)
 
-        for name, pts in scored:
-            stats = data.get(name)
-            if stats is None:
-                stats = PlayerStats()
-                data[name] = stats
-            stats.history.append(pts)
-
         updated_count = len(scored)
 
         if updated_count >= MIN_PLAYERS_PER_MATCH:
+            # Determine the current match index across all existing players before adding this match.
+            # Any player who is already registered but did not participate in this match gets the placeholder.
+            active_names = {name for name, _ in scored}
+            max_rounds = max((len(stats.history) for stats in data.values()), default=0)
+
+            # Bring existing players up to date if they had missing entries, then append scores/placeholders
+            for existing_name, stats in data.items():
+                if len(stats.history) < max_rounds:
+                    stats.history.extend([PLACEHOLDER_ABSENT] * (max_rounds - len(stats.history)))
+
+            # Now record the new match for all participating players
+            for name, pts in scored:
+                stats = data.get(name)
+                if stats is None:
+                    # New player: backfill past matches with placeholder so timeline aligns
+                    stats = PlayerStats(history=[PLACEHOLDER_ABSENT] * max_rounds)
+                    data[name] = stats
+                stats.history.append(pts)
+
+            # For every other player already in the database who didn't play in this match, add placeholder
+            for existing_name, stats in data.items():
+                if existing_name not in active_names:
+                    stats.history.append(PLACEHOLDER_ABSENT)
+
             storage.save(data)
             flash(
                 request,
