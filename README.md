@@ -1,175 +1,168 @@
 # 🃏 Card Game Score Tracker
 
-A lightweight, secure web app for tracking scores and leaderboards in multiplayer
-games where point totals vary per match and player attendance is uneven.
+A lightweight, secure web app for tracking scores and leaderboards in multiplayer card games where point totals vary per match and player attendance is uneven.
 
-Built with **FastAPI**, **Jinja2**, **Tailwind CSS** and **Alpine.js**, shipped as a
-**Docker** image on GitHub Container Registry, and developed inside a **Dev Container**.
+Built with **FastAPI**, **Jinja2**, **Tailwind CSS**, and **Alpine.js**, shipped as a **Docker** container (or image on GitHub Container Registry), and configured with Dev Container support.
 
 ---
 
 ## ✨ Key Features
 
-1. **Official Bayesian Leaderboard (default view)**
-   * Fixes the "one-game wonder" problem — a player who plays a single match and wins
-     should not top a raw average.
-   * Bayesian average using global game statistics with a dynamic regularisation weight
-     ($C = 30\%$ of the maximum number of matches played).
-   * Sorted ascending, so it also works for penalty-point scoring (lower is better).
+1. **Official Bayesian Leaderboard (Default View):**
+   * Solves the "one-game wonder" problem where a single win skews raw averages.
+   * Calculates a **Bayesian Average** using global statistics with dynamic regularisation ($C = 30\%$ of the maximum number of matches played).
+   * Sorted in ascending order (ideal for penalty-point card games where lower scores are better).
 
-2. **Badges & explanation pop-ups**
-   * 👑 **Crown** for the #1 player and 💀 **Skull** for the last one, each opening a
-     modal that explains why.
+2. **Badges & Explanatory Modals:**
+   * 👑 **Crown** for the #1 player on the Bayesian leaderboard.
+   * 💀 **Skull** for the bottom player (when >1 player exists).
+   * Interactive click-to-open modals detailing badge criteria.
 
-3. **Match history & trend analysis (`/history`)**
-   * Per-match point log for every participant.
-   * Interactive **Chart.js** line chart of each player's trend across matches.
+3. **Match History & Trend Analysis (`/history`):**
+   * Detailed match-by-match score logs for each participant.
+   * Interactive **Chart.js** line graph showing performance trends across matches.
 
-4. **Collapsible raw-average table**
-   * The traditional raw average stays available at the bottom of the home page
-     (*"Mostra la classifica a media reale"*).
+4. **Collapsible Raw-Average Table:**
+   * Access the unweighted raw average rankings anytime via the bottom toggle link (*"Mostra la classifica a media reale"*).
 
-5. **Password-protected score entry (`POST /update`)**
-   * No anonymous tampering with game statistics. Set `ADMIN_PASSWORD`; in dev,
-     `DEV=true` bypasses it.
+5. **Secure Match Submission & Score Rules (`POST /update`):**
+   * Protected with `ADMIN_PASSWORD` (timing-safe check with `hmac.compare_digest`).
+   * **Searchable combobox:** Select existing players or add new players directly from the dropdown.
+   * **Duplicate & minimum player validation:** Prevents duplicate player rows in a single match and requires at least 2 players.
+   * **Match winner scoring:** Toggle winner(s) with 🏆. A single winner scores `-10` points; multiple tied winners score `0` points; other players submit whole number penalty points ($> 0$).
 
-6. **Rules engine & bot simulation (`/alfredo`)**
-   * Simulated matches driven by the rule set in [`alfredoRuleSet.md`](alfredoRuleSet.md),
-     with bot opponents and match reports.
+6. **Alfredo Card Game Simulator (`/alfredo`):**
+   * Full bot-vs-bot simulation engine driven by the complete rule set in [`alfredoRuleSet.md`](alfredoRuleSet.md).
+   * Configurable player counts, round numbers, bot personality styles (`conservative`, `aggressive`, `mixed`, etc.), and repeatable random seeds.
+   * Comprehensive round-by-round point breakdown and interactive turn logs.
 
-7. **Mobile-first responsive UI** — Tailwind + Alpine, horizontal table scrolling on phones.
+7. **Resilient Data Storage (`scores.json`):**
+   * Atomic file writes (temporary write + `fsync` + atomic `os.replace`) to ensure data cannot be corrupted mid-write.
+   * Automatic backward-compatibility for legacy data files.
+
+8. **Mobile-First Responsive UI:**
+   * Responsive layout with Tailwind CSS and horizontal table scrolling for phones and tablets.
 
 ---
 
 ## 🛠️ Tech Stack
 
 | Layer | Technology |
-| --- | --- |
-| Backend | Python 3.13, FastAPI, uvicorn |
-| Templates | Jinja2 + Tailwind CSS (CDN), Alpine.js, Chart.js |
-| Storage | JSON file (`data/scores.json`), atomic writes, mounted as a Docker volume |
-| Tests | pytest |
-| Dev environment | Dev Container (VS Code / any devcontainer-compatible editor) |
-| CI/CD | GitHub Actions → image published to `ghcr.io` |
-| Deployment | Docker Compose, pulling the published image |
+| :--- | :--- |
+| **Backend** | Python 3.13, FastAPI, Starlette, Uvicorn |
+| **Frontend** | Jinja2, Tailwind CSS (CDN), Alpine.js, Chart.js |
+| **Storage** | Atomic JSON file persistence (`data/scores.json`), mapped via Docker volume |
+| **Testing** | pytest, httpx / FastAPI TestClient |
+| **Container & CI** | Docker, Docker Compose, GitHub Actions (`ghcr.io`) |
+| **Dev Environment** | VS Code Dev Containers |
 
-### Repository layout
+### Repository Structure
 
 ```
 .
 ├── app/
-│   ├── app.py                # entrypoint (uvicorn on :5000)
-│   ├── cardgame/             # app package: routes, stats, storage, simulation engine
-│   ├── templates/  static/   # Jinja2 templates, JS
-│   ├── tests/                # pytest suite
-│   ├── Dockerfile            # built from ./app
-│   └── requirements*.txt
-├── data/scores.json          # persistent data (volume)
-├── docker-compose.yaml       # production / devcontainer compose file
-├── .devcontainer/            # dev container config
-└── .github/workflows/deploy.yml
+│   ├── app.py                     # Application entrypoint (uvicorn on port 5000)
+│   ├── cardgame/                  # Core package
+│   │   ├── alfredo/               # Alfredo rules engine, bots, and simulation
+│   │   │   ├── bots.py            # Bot memory and decision policies
+│   │   │   ├── cards.py           # Deck definition, cards, and values
+│   │   │   ├── engine.py          # State machine and rules engine
+│   │   │   ├── report.py          # Match reports and terminal standings
+│   │   │   ├── simulate.py        # Match simulator
+│   │   │   ├── state.py           # Hand slots, player state, and event logs
+│   │   │   └── views.py           # Memory views visible to bot policies
+│   │   ├── static/js/             # Client-side scripts (match-form.js, trend-chart.js)
+│   │   ├── templates/             # Jinja2 templates (index.html, history.html, alfredo.html)
+│   │   ├── alfredo_routes.py      # Simulator route (/alfredo)
+│   │   ├── config.py              # Environment configuration
+│   │   ├── const.py               # Constants (DEV mode detection)
+│   │   ├── models.py              # Domain dataclasses (ScoreData, PlayerRow, etc.)
+│   │   ├── routes.py              # Main routes (/, /history, /update)
+│   │   ├── stats.py               # Bayesian average & leaderboard calculations
+│   │   └── storage.py             # JSON persistence & atomic writes
+│   ├── tests/                     # Unit and integration test suite
+│   ├── Dockerfile                 # Docker build definition
+│   └── requirements*.txt          # Python dependencies
+├── data/scores.json               # Persistent score storage (bind-mounted)
+├── docker-compose.yaml            # Docker Compose orchestration
+├── deploy.sh                      # Tag/release-based VPS deployment script
+├── alfredoRuleSet.md              # Complete rulebook for the Alfredo game
+├── .devcontainer/                 # Dev Container configuration
+└── .github/workflows/deploy.yml   # CI workflow pushing Docker image to ghcr.io
 ```
 
 ---
 
-## 💻 Development (Dev Container)
+## 📦 Configuration & Environment Variables
 
-Development happens inside the dev container — no local Python install needed.
+Environment variables can be defined in a `.env` file at the repository root (see [`.env.example`](.env.example)):
 
-1. Install **Docker** and **VS Code** with the **Dev Containers** extension.
-2. Open this folder in VS Code and run **"Dev Containers: Reopen in Container"**
-   (or let VS Code prompt you). The container is built from `app/Dockerfile` via
-   `docker-compose.yaml` + `.devcontainer/docker-compose.devcontainer.yaml`, with the
-   repo bind-mounted at `/app`.
-3. Inside the container, `DEV=true` is already set, so the app runs with auto-reload:
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `ADMIN_PASSWORD` | Password required to record matches on `/update`. | `yourPassword` |
+| `SECRET_KEY` | Secret key used to sign session cookies for flash messages. | `secret_key` |
+| `DEV` | When set to `true`, enables uvicorn auto-reload and bypasses admin password check in development. | `""` |
+| `UID` / `GID` | User and group ID to run container processes as, avoiding root-owned files in `./data`. | Host user UID/GID |
 
+---
+
+## 🚀 Running the Application
+
+### Option A: Running with Docker Compose (Recommended)
+
+1. Copy and configure your environment:
    ```bash
-   python app/app.py            # → http://localhost:5000
+   cp .env.example .env
+   # Edit .env and set your ADMIN_PASSWORD and SECRET_KEY
    ```
 
-4. Run the tests:
-
+2. Start the service:
    ```bash
-   cd app && python -m pytest -q
+   docker compose up -d --build
+   ```
+   The application will be live at `http://localhost:5000`.
+
+### Option B: Automated VPS Deployment (`deploy.sh`)
+
+If running on a VPS using Git tags / releases:
+1. Ensure `deploy.sh` is executable:
+   ```bash
+   chmod +x deploy.sh
+   ```
+2. Run `./deploy.sh` or configure a cron job to check for updates periodically:
+   ```cron
+   0 * * * * /bin/bash /path/to/game_scoreboard/deploy.sh >> /path/to/game_scoreboard/deploy.log 2>&1
    ```
 
-Environment variables live in `.env` at the repo root (copy `.env.example`):
+### Option C: Development via Dev Container
 
-| Variable | Purpose |
-| --- | --- |
-| `ADMIN_PASSWORD` | password required by `POST /update` |
-| `SECRET_KEY` | signing key for the admin session cookie |
-| `DEV` | `true` disables the admin password and enables uvicorn reload (dev container only) |
-| `UID` / `GID` | run the container as your host user (avoids root-owned `data/`) |
+1. Open the project folder in **VS Code** with the **Dev Containers** extension installed.
+2. Select **"Dev Containers: Reopen in Container"** when prompted.
+3. The environment sets `DEV=true` automatically with hot-reload enabled. Start or test:
+   ```bash
+   # Run app
+   python app/app.py
 
-VS Code settings in the dev container enable Python type checking in `strict` mode.
+   # Run tests
+   cd app && pytest -q
+   ```
 
-### Running without the dev container
+---
+
+## 🧪 Testing
+
+Run the test suite using `pytest`:
 
 ```bash
-cp .env.example .env      # then edit ADMIN_PASSWORD
-docker compose up --build # → http://localhost:5000
+cd app
+python -m pytest
 ```
 
----
-
-## 🚢 Continuous Integration
-
-`.github/workflows/deploy.yml` builds `app/Dockerfile` and pushes it to
-`ghcr.io/<owner>/<repo>`:
-
-| Event | Image tags pushed |
-| --- | --- |
-| Push to `main` | `latest`, `main`, `sha-<commit>` |
-| Push a `v*` tag | `v1.2.3`, `sha-<commit>` |
-| Publish a GitHub Release | `v1.2.3`, `sha-<commit>` |
-| Manual run (Actions tab) | `sha-<commit>` |
-
----
-
-## 🏷️ Publishing a release
-
-```bash
-git add .
-git commit -m "feat: ..."
-git push origin main
-
-git tag v1.0.0 && git push origin v1.0.0   # → image tagged v1.0.0
-# or create a Release in the GitHub UI → same image tag
-```
-
-Pushing the tag (or publishing the release) triggers the workflow, which builds and
-pushes the versioned image.
-
----
-
-## 🚀 Running with Docker Compose
-
-Create a `docker-compose.yaml` next to a `.env` file holding the real secrets (never
-commit them), then `docker compose up -d`:
-
-```yaml
-services:
-  card-game-tracker:
-    image: <registry>/<owner>/<repo>:<tag>   # e.g. ghcr.io/<owner>/<repo>:v1.0.0
-    container_name: card_game_server
-    restart: always
-    user: "${UID}:${GID}"
-    ports:
-      - "5000:5000"
-    environment:
-      - SECRET_KEY=your-super-secret-key
-      - ADMIN_PASSWORD="${ADMIN_PASSWORD:-yourPassword}"
-    volumes:
-      - ./data:/app/data
-```
-
-Replace the `image:` placeholder with the image published by the CI workflow, e.g.
-`ghcr.io/<owner>/<repo>:latest` or a released version tag. If the registry is private,
-log in first (`docker login ghcr.io`).
-
-The `./data` directory holds `scores.json` and survives container recreation — back it
-up if you care about the history.
+The test suite covers:
+* Player score updates, duplicate rejection, and winner point assignments (`test_update_route.py`)
+* Alfredo card rules, special abilities, and game state transitions (`test_alfredo_rules.py`)
+* Bot decision policies and simulations (`test_alfredo_bots.py`)
+* Web route rendering and query handling (`test_alfredo_routes.py`)
 
 ---
 
