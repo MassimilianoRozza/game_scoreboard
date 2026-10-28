@@ -4,5 +4,9 @@ __pycache__/
 *.pyc
 .env
 *.log
-docker-compose.yml
 app.py.bk
+
+# Python bytecode / test caches
+__pycache__/
+*.pyc
+.pytest_cache/

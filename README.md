@@ -1,147 +1,178 @@
 # 🃏 Card Game Score Tracker
 
-A modern, lightweight, and secure web application built with **Flask** and **Tailwind CSS** designed to track scores and leaderboards for multiplayer card games (such as Rummy, Hearts, or Uno) where point totals vary per match and player attendance is uneven.
+A lightweight, secure web app for tracking scores and leaderboards in multiplayer
+games where point totals vary per match and player attendance is uneven.
+
+Built with **FastAPI**, **Jinja2**, **Tailwind CSS** and **Alpine.js**, shipped as a
+**Docker** image on GitHub Container Registry, and developed inside a **Dev Container**.
 
 ---
 
 ## ✨ Key Features
 
-1. **Official Bayesian Leaderboard (Default):**
-   * Solves the problem of "one-game wonders" (players who play a single match and win, artificially skewing raw averages).
-   * Automatically calculates a **Bayesian Average** using global game statistics and a dynamic regularization weight ($C = 30\% \text{ of max matches played}$).
-   * Sorts players automatically (ascending order, ideal for penalty-point card games).
+1. **Official Bayesian Leaderboard (default view)**
+   * Fixes the "one-game wonder" problem — a player who plays a single match and wins
+     should not top a raw average.
+   * Bayesian average using global game statistics with a dynamic regularisation weight
+     ($C = 30\%$ of the maximum number of matches played).
+   * Sorted ascending, so it also works for penalty-point scoring (lower is better).
 
-2. **Badges & Interactive Pop-ups:**
-   * **Crown (👑):** Awarded to the #1 player on the official Bayesian leaderboard (with an interactive click-to-open explanation modal).
-   * **Skull (💀):** Highlights the bottom player on the Bayesian leaderboard (with an interactive click-to-open explanation modal).
+2. **Badges & explanation pop-ups**
+   * 👑 **Crown** for the #1 player and 💀 **Skull** for the last one, each opening a
+     modal that explains why.
 
-3. **Match History & Trend Analysis (`/history`):**
-   * View point logs match-by-match for every participant.
-   * Interactive **Chart.js** line graph tracking each player's performance trend across matches.
+3. **Match history & trend analysis (`/history`)**
+   * Per-match point log for every participant.
+   * Interactive **Chart.js** line chart of each player's trend across matches.
 
-4. **Collapsible Raw Average Table:**
-   * The traditional raw average table is safely tucked away at the bottom of the home page via an interactive hyperlink toggle (*"Mostra la classifica a media reale"*).
+4. **Collapsible raw-average table**
+   * The traditional raw average stays available at the bottom of the home page
+     (*"Mostra la classifica a media reale"*).
 
-5. **Secure Admin Panel:**
-   * Password-protected score submission (`/update`).
-   * Prevents unauthorized tampering with game statistics.
+5. **Password-protected score entry (`POST /update`)**
+   * No anonymous tampering with game statistics. Set `ADMIN_PASSWORD`; in dev,
+     `DEV=true` bypasses it.
 
-6. **Mobile-First & Responsive UI:**
-   * Styled with **Tailwind CSS** and **Alpine.js**.
-   * Features horizontal table scrolling for seamless viewing on smartphones.
+6. **Rules engine & bot simulation (`/alfredo`)**
+   * Simulated matches driven by the rule set in [`alfredoRuleSet.md`](alfredoRuleSet.md),
+     with bot opponents and match reports.
+
+7. **Mobile-first responsive UI** — Tailwind + Alpine, horizontal table scrolling on phones.
 
 ---
 
 ## 🛠️ Tech Stack
 
-* **Backend:** Python 3.11, Flask
-* **Data Storage:** JSON-based persistent storage (`scores.json`) secured via Docker volumes
-* **Frontend:** Tailwind CSS, Alpine.js, Chart.js
-* **Containerization & Automation:** Docker, Docker Compose, Git Tags / Releases, Cron Jobs
+| Layer | Technology |
+| --- | --- |
+| Backend | Python 3.13, FastAPI, uvicorn |
+| Templates | Jinja2 + Tailwind CSS (CDN), Alpine.js, Chart.js |
+| Storage | JSON file (`data/scores.json`), atomic writes, mounted as a Docker volume |
+| Tests | pytest |
+| Dev environment | Dev Container (VS Code / any devcontainer-compatible editor) |
+| CI/CD | GitHub Actions → image published to `ghcr.io` |
+| Deployment | Docker Compose, pulling the published image |
+
+### Repository layout
+
+```
+.
+├── app/
+│   ├── app.py                # entrypoint (uvicorn on :5000)
+│   ├── cardgame/             # app package: routes, stats, storage, simulation engine
+│   ├── templates/  static/   # Jinja2 templates, JS
+│   ├── tests/                # pytest suite
+│   ├── Dockerfile            # built from ./app
+│   └── requirements*.txt
+├── data/scores.json          # persistent data (volume)
+├── docker-compose.yaml       # production / devcontainer compose file
+├── .devcontainer/            # dev container config
+└── .github/workflows/deploy.yml
+```
 
 ---
 
-## 🚀 Complete Configuration & Deployment Guide (VPS)
+## 💻 Development (Dev Container)
 
-### 1. Project Structure on your VPS
-Ensure your project directory on the host (e.g., `/home/debian/game_scoreboard`) contains:
-* `app.py`
-* `requirements.txt`
-* `Dockerfile`
-* `docker-compose.yml`
-* `deploy.sh`
+Development happens inside the dev container — no local Python install needed.
 
-### 2. Environment Variables (`docker-compose.yml`)
-Configure your secure password and secrets:
+1. Install **Docker** and **VS Code** with the **Dev Containers** extension.
+2. Open this folder in VS Code and run **"Dev Containers: Reopen in Container"**
+   (or let VS Code prompt you). The container is built from `app/Dockerfile` via
+   `docker-compose.yaml` + `.devcontainer/docker-compose.devcontainer.yaml`, with the
+   repo bind-mounted at `/app`.
+3. Inside the container, `DEV=true` is already set, so the app runs with auto-reload:
+
+   ```bash
+   python app/app.py            # → http://localhost:5000
+   ```
+
+4. Run the tests:
+
+   ```bash
+   cd app && python -m pytest -q
+   ```
+
+Environment variables live in `.env` at the repo root (copy `.env.example`):
+
+| Variable | Purpose |
+| --- | --- |
+| `ADMIN_PASSWORD` | password required by `POST /update` |
+| `SECRET_KEY` | signing key for the admin session cookie |
+| `DEV` | `true` disables the admin password and enables uvicorn reload (dev container only) |
+| `UID` / `GID` | run the container as your host user (avoids root-owned `data/`) |
+
+VS Code settings in the dev container enable Python type checking in `strict` mode.
+
+### Running without the dev container
+
+```bash
+cp .env.example .env      # then edit ADMIN_PASSWORD
+docker compose up --build # → http://localhost:5000
+```
+
+---
+
+## 🚢 Continuous Integration
+
+`.github/workflows/deploy.yml` builds `app/Dockerfile` and pushes it to
+`ghcr.io/<owner>/<repo>`:
+
+| Event | Image tags pushed |
+| --- | --- |
+| Push to `main` | `latest`, `main`, `sha-<commit>` |
+| Push a `v*` tag | `v1.2.3`, `sha-<commit>` |
+| Publish a GitHub Release | `v1.2.3`, `sha-<commit>` |
+| Manual run (Actions tab) | `sha-<commit>` |
+
+---
+
+## 🏷️ Publishing a release
+
+```bash
+git add .
+git commit -m "feat: ..."
+git push origin main
+
+git tag v1.0.0 && git push origin v1.0.0   # → image tagged v1.0.0
+# or create a Release in the GitHub UI → same image tag
+```
+
+Pushing the tag (or publishing the release) triggers the workflow, which builds and
+pushes the versioned image.
+
+---
+
+## 🚀 Running with Docker Compose
+
+Create a `docker-compose.yaml` next to a `.env` file holding the real secrets (never
+commit them), then `docker compose up -d`:
+
 ```yaml
-version: '3.8'
-
 services:
-  scoretracker:
-    build: .
+  card-game-tracker:
+    image: <registry>/<owner>/<repo>:<tag>   # e.g. ghcr.io/<owner>/<repo>:v1.0.0
     container_name: card_game_server
     restart: always
+    user: "${UID}:${GID}"
     ports:
       - "5000:5000"
     environment:
-      - SECRET_KEY=your-super-secret-flask-key
-      - ADMIN_PASSWORD=your_secure_admin_password
+      - SECRET_KEY=your-super-secret-key
+      - ADMIN_PASSWORD="${ADMIN_PASSWORD:-yourPassword}"
     volumes:
       - ./data:/app/data
 ```
 
-### 3. Automated Release-Based Deployment Script (`deploy.sh`)
-Create or update `/home/debian/game_scoreboard/deploy.sh`:
-```bash
-#!/bin/bash
+Replace the `image:` placeholder with the image published by the CI workflow, e.g.
+`ghcr.io/<owner>/<repo>:latest` or a released version tag. If the registry is private,
+log in first (`docker login ghcr.io`).
 
-GIT="/usr/bin/git"
-DOCKER="/usr/bin/docker"
-
-cd /home/debian/game_scoreboard || { echo "Error: Directory not found!"; exit 1; }
-
-$GIT fetch --tags origin
-
-LATEST_TAG=$($GIT describe --tags $($GIT rev-list --tags --max-count=1) 2>/dev/null)
-
-if [ -z "$LATEST_TAG" ]; then
-        echo "Error: no release (tag Git) found."
-        exit 1
-fi
-
-CURRENT_TAG=$($GIT describe --tags --exact-match 2>/dev/null || echo "none")
-
-echo "Last release available on github: $LATEST_TAG"
-echo "Current running version: $CURRENT_TAG"
-
-if [ "$CURRENT_TAG" != "$LATEST_TAG" ]; then
-        echo "Updating to release on server: $LATEST_TAG"
-
-        $GIT reset --hard "$LATEST_TAG"
-
-        $DOCKER compose down
-        $DOCKER compose build --no-cache
-        $DOCKER compose up -d
-
-        echo "Deployment to release $LATEST_TAG completed"
-else
-        echo "Server already updated"
-fi
-```
-
-Make it executable:
-```bash
-chmod +x /home/debian/game_scoreboard/deploy.sh
-```
-
-### 4. Setting up the Cron Job (Automatic Updates)
-Configure root crontab to check for new releases automatically (e.g., every hour):
-```bash
-sudo crontab -e
-```
-Add this line at the bottom:
-```cron
-* */1 * * * /bin/bash /home/debian/game_scoreboard/deploy.sh >> /home/debian/game_scoreboard/deploy.log 2>&1
-```
-
----
-
-## 🏷️ How to Publish Your First Release
-
-1. **Commit and Push your code from your development environment:**
-   ```bash
-   git add .
-   git commit -m "Complete stable release configuration"
-   git push origin main
-   ```
-2. **Create and push your first Git Tag:**
-   ```bash
-   git tag v1.0.0
-   git push origin v1.0.0
-   ```
-3. Your host cron job will automatically detect the new release (`v1.0.0`), pull it, rebuild the Docker container, and deploy it smoothly!
+The `./data` directory holds `scores.json` and survives container recreation — back it
+up if you care about the history.
 
 ---
 
 ## 📜 License
+
 This project is open-source and available under the [MIT License](LICENSE).

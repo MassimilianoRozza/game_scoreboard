@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Card Game Tracker - Alfredo Simulatore{% endblock %}
+
+{% block content %}
+    <div class="max-w-5xl mx-auto space-y-8 px-4">
+        <header class="text-center">
+            <h1 class="text-3xl font-extrabold text-gray-800">🎴 Alfredo — Simulatore Bot vs Bot</h1>
+            <p class="text-gray-600 mt-1">Il motore applica il regolamento ufficiale. Nessun bot bara: ricorda solo ciò che ha davvero guardato.</p>
+        </header>
+
+        <!-- Setup form: parameters live in the query string so any result is shareable -->
+        <form method="get" action="{{ url_for('alfredo.view') }}" class="bg-white shadow-md rounded-lg p-6">
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div>
+                    <label for="players" class="block text-sm font-semibold text-gray-700 mb-1">Giocatori</label>
+                    <input type="number" id="players" name="players" min="{{ min_players }}" max="{{ max_players }}"
+                           value="{{ form.players }}"
+                           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">{{ min_players }}–{{ max_players }} (mazzi: ⌈n/4⌉)</p>
+                </div>
+                <div>
+                    <label for="rounds" class="block text-sm font-semibold text-gray-700 mb-1">Round</label>
+                    <input type="number" id="rounds" name="rounds" min="{{ min_rounds }}" max="{{ max_rounds }}"
+                           value="{{ form.rounds }}"
+                           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">{{ min_rounds }}–{{ max_rounds }}</p>
+                </div>
+                <div>
+                    <label for="style" class="block text-sm font-semibold text-gray-700 mb-1">Personalità bot</label>
+                    <select id="style" name="style"
+                            class="w-full border border-gray-300 rounded px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        {% for option in styles %}
+                        <option value="{{ option }}" {% if form.style == option %}selected{% endif %}>{{ option }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">memoria e riflessi diversi</p>
+                </div>
+                <div>
+                    <label for="seed" class="block text-sm font-semibold text-gray-700 mb-1">Seed</label>
+                    <input type="number" id="seed" name="seed" value="{{ form.seed }}"
+                           class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">vuoto = casuale</p>
+                </div>
+            </div>
+            <div class="mt-4 flex gap-3">
+                <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 font-bold">Simula partita</button>
+            </div>
+        </form>
+
+        {% if errors %}
+        <div class="space-y-2">
+            {% for error in errors %}
+            <div class="p-4 rounded-lg text-white bg-red-500 text-sm font-semibold">{{ error }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if match %}
+        <!-- Final standings -->
+        <div class="bg-white shadow-md rounded-lg overflow-hidden">
+            <div class="p-4 bg-gray-900 text-white font-bold flex justify-between items-center flex-wrap gap-2">
+                <span>🏆 Classifica finale (cumulativa)</span>
+                <span class="text-xs font-normal text-gray-300">
+                    {{ match.players|length }} giocatori · {{ match.deck_count }} mazzo/i · seed {{ match.seed }} · {{ match.style }}
+                </span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse whitespace-nowrap">
+                    <thead>
+                        <tr class="bg-gray-800 text-white">
+                            <th class="py-3 px-4">Pos</th>
+                            <th class="py-3 px-4">Giocatore</th>
+                            <th class="py-3 px-4 text-right">Punti cumulativi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in match.standings %}
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="py-3 px-4 font-bold text-gray-700">{{ row.rank }}</td>
+                            <td class="py-3 px-4 font-medium text-gray-900">
+                                {{ row.name }}
+                                {% if row.rank == 1 %}<span title="Vincitore: punteggio cumulativo più basso">👑</span>{% endif %}
+                                {% if match.standings|length > 1 and row.rank == match.standings|length %}<span title="Ultimo in classifica">💀</span>{% endif %}
+                            </td>
+                            <td class="py-3 px-4 text-right font-bold {% if row.score < 0 %}text-green-700{% elif row.score > 0 %}text-red-600{% endif %}">{{ row.score }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Round by round -->
+        {% for round in match.rounds %}
+        <div class="bg-white shadow-md rounded-lg overflow-hidden">
+            <div class="p-4 bg-gray-800 text-white font-bold flex justify-between items-center flex-wrap gap-2">
+                <span>Round {{ round.number }}</span>
+                <span class="text-xs font-normal">
+                    {% if round.caller %}
+                    Chiamata: {{ round.caller }} · Caso {{ round.case }}
+                    {% else %}
+                    Nessuna chiamata · Caso {{ round.case }}
+                    {% endif %}
+                    · {{ round.turns }} turni
+                </span>
+            </div>
+            <div class="px-4 py-3 text-sm text-gray-700 bg-gray-50 border-b">{{ round.message }}</div>
+            {% if round.ended_by_draw_pile %}
+            <div class="px-4 py-2 text-xs text-amber-800 bg-amber-100 border-b">Round terminato per esaurimento del mazzo di pesca.</div>
+            {% endif %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse whitespace-nowrap">
+                    <thead>
+                        <tr class="bg-gray-200 text-gray-700">
+                            <th class="py-3 px-4">Giocatore</th>
+                            <th class="py-3 px-4 text-right">Totale carte</th>
+                            <th class="py-3 px-4 text-right">Punti round</th>
+                            <th class="py-3 px-4 text-right">Cumulativa</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in round.rows %}
+                        <tr class="border-b hover:bg-gray-50 {% if round.caller == row.name %}bg-yellow-50{% endif %}">
+                            <td class="py-3 px-4 font-medium text-gray-900">
+                                {{ row.name }}{% if round.caller == row.name %} <span class="text-xs text-gray-500">(chiamante)</span>{% endif %}
+                            </td>
+                            <td class="py-3 px-4 text-right text-gray-700">{{ row.card_total }}</td>
+                            <td class="py-3 px-4 text-right font-semibold {% if row.round_score < 0 %}text-green-700{% elif row.round_score > 0 %}text-red-600{% endif %}">{{ row.round_score }}</td>
+                            <td class="py-3 px-4 text-right text-gray-700">{{ row.cumulative }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Event log -->
+        <details class="bg-white shadow-md rounded-lg overflow-hidden">
+            <summary class="p-4 bg-gray-700 text-white font-bold cursor-pointer select-none">Dettaglio giocate ({{ match.log|length }} eventi)</summary>
+            <div class="max-h-96 overflow-y-auto p-4">
+                <ul class="space-y-1 text-sm text-gray-700">
+                    {% for entry in match.log %}
+                    <li class="border-l-2 border-gray-300 pl-3">
+                        <span class="text-xs text-gray-500">R{{ entry.round_number }} T{{ entry.turn }}</span>
+                        <span class="inline-block text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600 ml-1">{{ entry.kind }}</span>
+                        {{ entry.message }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </details>
+        {% endif %}
+
+        <p class="text-center text-xs text-gray-500">
+            Il simulatore non modifica la classifica: i punteggi dei bot restano isolati da <code>scores.json</code>.
+        </p>
+    </div>
+{% endblock %}

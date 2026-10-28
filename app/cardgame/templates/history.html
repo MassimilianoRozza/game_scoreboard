@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Card Game Tracker - Storico & Trend{% endblock %}
+
+{% block head %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+    <div class="max-w-5xl mx-auto space-y-8 px-4">
+        <header class="text-center">
+            <h1 class="text-3xl font-extrabold text-gray-800">Storico e Trend Partite</h1>
+            <p class="text-gray-600 mt-1">Dettaglio partita per partita dei punteggi di tutti i giocatori</p>
+        </header>
+
+        <!-- Chart Section -->
+        <div class="bg-white shadow-md rounded-lg p-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Grafico Andamento Punteggi</h2>
+            <div class="relative h-80 w-full">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+
+        <!-- History Table Section -->
+        <div class="bg-white shadow-md rounded-lg overflow-hidden">
+            <div class="p-4 bg-gray-800 text-white font-bold">Log Partita per Partita</div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse whitespace-nowrap">
+                    <thead>
+                        <tr class="bg-gray-200 text-gray-700">
+                            <th class="py-3 px-4">Nome Giocatore</th>
+                            <th class="py-3 px-4">Media</th>
+                            {% for i in range(1, max_matches + 1) %}
+                            <th class="py-3 px-4 text-center">Partita {{ i }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for player in leaderboard %}
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="py-3 px-4 font-bold text-gray-900">{{ player.name }}</td>
+                            <td class="py-3 px-4 font-semibold text-blue-600 bg-blue-50/50">{{ player.average }}</td>
+                            {% for pts in player.history %}
+                            <td class="py-3 px-4 text-center text-gray-700">{{ pts }}</td>
+                            {% endfor %}
+                            {% for empty in range(player.history|length, max_matches) %}
+                            <td class="py-3 px-4 text-center text-gray-300">-</td>
+                            {% endfor %}
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="{{ max_matches + 2 }}" class="py-6 text-center text-gray-500">Nessuno storico registrato.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script id="trend-data" type="application/json">{{ chart_rows | tojson }}</script>
+    <script src="{{ url_for('static', path='/js/trend-chart.js') }}" defer></script>
+{% endblock %}
