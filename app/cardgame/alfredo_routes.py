@@ -14,6 +14,7 @@ from fastapi.templating import Jinja2Templates
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .alfredo.simulate import MatchSummary
+    from .config import Config
 
 #: Defaults shown on a fresh page load.
 DEFAULT_PLAYERS = 4
@@ -78,7 +79,7 @@ def build_match_context(summary: MatchSummary) -> dict[str, Any]:
     }
 
 
-def create_alfredo_router(templates: Jinja2Templates) -> APIRouter:
+def create_alfredo_router(templates: Jinja2Templates, config: "Config | None" = None) -> APIRouter:
     """Build the ``/alfredo`` router."""
     router = APIRouter()
 
@@ -150,6 +151,8 @@ def create_alfredo_router(templates: Jinja2Templates) -> APIRouter:
                 "max_players": simulator.MAX_PLAYERS,
                 "min_rounds": simulator.MIN_ROUNDS,
                 "max_rounds": simulator.MAX_ROUNDS,
+                "app_version": config.app_version if config else "dev",
+                "github_url": config.github_url if config else "",
             },
         )
 

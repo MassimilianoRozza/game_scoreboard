@@ -58,6 +58,8 @@ def create_router(
         return {
             "url_for": request.app.url_path_for,
             "flashes": take_flashes(request),
+            "app_version": config.app_version,
+            "github_url": config.github_url,
         }
 
     def is_authorized(password: str) -> bool:

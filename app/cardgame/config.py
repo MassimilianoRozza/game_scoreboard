@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+import subprocess
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
 
@@ -16,6 +17,22 @@ DATA_FILE_NAME: Final[str] = "scores.json"
 DEFAULT_SECRET_KEY: Final[str] = "super-secret-default-key-change-this"
 DEFAULT_ADMIN_PASSWORD: Final[str] = "changeme123"
 
+#: Public GitHub repository URL shown in the UI footer.
+GITHUB_URL: Final[str] = "https://github.com/MassimilianoRozza/game_scoreboard"
+
+
+def _detect_app_version() -> str:
+    """Return the current git tag (e.g. ``v0.1.1``), or ``"dev"`` as fallback."""
+    try:
+        version = subprocess.check_output(
+            ["git", "describe", "--tags", "--always"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+        return version if version else "dev"
+    except Exception:
+        return "dev"
+
 
 @dataclass(frozen=True)
 class Config:
@@ -26,6 +43,8 @@ class Config:
     data_dir: Path
     data_file: Path
     dev_mode: bool
+    app_version: str = field(default_factory=_detect_app_version)
+    github_url: str = GITHUB_URL
 
     @classmethod
     def from_env(cls) -> "Config":

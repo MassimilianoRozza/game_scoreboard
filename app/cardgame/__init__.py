@@ -33,5 +33,5 @@ def create_app(config: Config | None = None) -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(_PACKAGE_DIR / "static")), name="static")
 
     app.include_router(create_router(Storage(app_config.data_file), app_config, templates))
-    app.include_router(create_alfredo_router(templates))
+    app.include_router(create_alfredo_router(templates, app_config))
     return app
