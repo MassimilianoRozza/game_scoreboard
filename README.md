@@ -19,8 +19,9 @@ Built with **FastAPI**, **Jinja2**, **Tailwind CSS**, and **Alpine.js**, shipped
    * Interactive click-to-open modals detailing badge criteria.
 
 3. **Match History & Trend Analysis (`/history`):**
-   * Detailed match-by-match score logs for each participant.
+   * Detailed match-by-match score logs for each participant with timeline alignment (absent matches represented with `-`).
    * Interactive **Chart.js** line graph showing performance trends across matches.
+   * **Dedicated Unique Player Colors:** Dynamically computes distinct, deterministic HSL colors for each player across the color spectrum using the golden angle ($137.5^\circ$), eliminating color collisions.
 
 4. **Collapsible Raw-Average Table:**
    * Access the unweighted raw average rankings anytime via the bottom toggle link (*"Mostra la classifica a media reale"*).
@@ -83,8 +84,9 @@ Built with **FastAPI**, **Jinja2**, **Tailwind CSS**, and **Alpine.js**, shipped
 │   ├── tests/                     # Unit and integration test suite
 │   ├── Dockerfile                 # Docker build definition
 │   └── requirements*.txt          # Python dependencies
-├── data/scores.json               # Persistent score storage (bind-mounted)
-├── docker-compose.yaml            # Docker Compose orchestration
+├── data/scores.json               # Persistent score storage (bind-mounted, gitignored)
+├── data.example/scores.json       # Example scores structure
+├── docker-compose.example.yaml    # Docker Compose example template
 ├── deploy.sh                      # Tag/release-based VPS deployment script
 ├── alfredoRuleSet.md              # Complete rulebook for the Alfredo game
 ├── .devcontainer/                 # Dev Container configuration
