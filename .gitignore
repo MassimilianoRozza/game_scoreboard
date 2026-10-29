@@ -3,6 +3,8 @@ database.db
 __pycache__/
 *.pyc
 .env
+docker-compose.yaml
+docker-compose.override.yaml
 *.log
 app.py.bk
 

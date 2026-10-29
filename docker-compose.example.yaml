@@ -3,7 +3,7 @@ services:
     build: ./app
     container_name: card_game_server
     restart: always
-    user: "${UID}:${GID}"
+    user: 1000:1000 # "${UID}:${GID}"
     ports:
       - "5000:5000"
     environment:
