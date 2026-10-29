@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 .env
 docker-compose.yaml
+docker-compose.yml
 docker-compose.override.yaml
 *.log
 app.py.bk
