@@ -34,6 +34,8 @@ class PlayerRow:
     rank: str = ""
     badge: str = ""
     badge_title: str = ""
+    #: Rank change since the last match: positive = improved (moved up), negative = dropped, 0 = unchanged / new.
+    rank_trend: int = 0
 
 
 @dataclass

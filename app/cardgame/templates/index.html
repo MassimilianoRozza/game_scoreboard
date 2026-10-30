@@ -48,7 +48,22 @@
                     <tbody>
                         {% for player in bayesian_leaderboard %}
                         <tr class="border-b hover:bg-gray-50">
-                            <td class="py-3 px-4 font-bold text-gray-700">{{ player.rank }}</td>
+                            <td class="py-3 px-4 font-bold text-gray-700">
+                                <span class="flex items-center gap-1">
+                                    {% if player.rank_trend > 0 %}
+                                    <svg class="w-4 h-4 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" title="Salito di {{ player.rank_trend }} posizione/i">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/>
+                                    </svg>
+                                    {% elif player.rank_trend < 0 %}
+                                    <svg class="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" title="Sceso di {{ player.rank_trend|abs }} posizione/i">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                                    </svg>
+                                    {% else %}
+                                    <span class="w-4 h-4 flex-shrink-0"></span>
+                                    {% endif %}
+                                    {{ player.rank }}
+                                </span>
+                            </td>
                             <td class="py-3 px-4 font-medium text-gray-900 flex items-center space-x-2">
                                 <span>{{ player.name }}</span>
                                 {% if player.badge %}

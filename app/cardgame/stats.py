@@ -46,6 +46,32 @@ def compute_global_stats(data: ScoreData) -> GlobalStats:
     return GlobalStats(mean=mean, max_matches=max_matches, c=c)
 
 
+def _rank_map_without_last_match(data: ScoreData, c: float, mean: float) -> dict[str, int]:
+    """Return a ``{player_name: rank}`` dict computed *without* the last match.
+
+    The last match is identified as the final entry (index ``-1``) in each
+    player's history.  Players whose entire history is only one entry (they
+    only ever played the last match) are excluded and receive rank ``0``.
+    """
+    previous: dict[str, float] = {}  # name -> bayesian average excluding last match
+    for player, player_stats in data.items():
+        history_without_last = player_stats.history[:-1]
+        numeric = _numeric_points(history_without_last)
+        if not numeric:
+            # New player or only played one match total — no previous rank.
+            continue
+        total = sum(numeric)
+        avg = bayesian_average(total, len(numeric), c, mean)
+        previous[player] = avg
+
+    if not previous:
+        return {}
+
+    # Sort ascending (lower = better) and assign ranks 1-based.
+    sorted_players = sorted(previous.items(), key=lambda item: item[1])
+    return {name: rank + 1 for rank, (name, _) in enumerate(sorted_players)}
+
+
 def build_leaderboards(data: ScoreData, stats: GlobalStats) -> Leaderboards:
     """Build the Bayesian and raw leaderboards, sorted ascending (lower = better)."""
     bayesian_leaderboard: list[PlayerRow] = []
@@ -84,6 +110,17 @@ def build_leaderboards(data: ScoreData, stats: GlobalStats) -> Leaderboards:
         row.rank = str(index + 1)
     for index, row in enumerate(raw_leaderboard):
         row.rank = str(index + 1)
+
+    # Compute rank trends relative to how the leaderboard looked before the last match.
+    previous_ranks = _rank_map_without_last_match(data, stats.c, stats.mean)
+    for row in bayesian_leaderboard:
+        prev = previous_ranks.get(row.name)
+        if prev is None:
+            row.rank_trend = 0  # new player, no trend
+        else:
+            current = int(row.rank)
+            # Lower rank number = better position; positive trend means improvement.
+            row.rank_trend = prev - current
 
     assign_badges(bayesian_leaderboard)
     return Leaderboards(bayesian=bayesian_leaderboard, raw=raw_leaderboard)
