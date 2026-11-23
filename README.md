@@ -30,7 +30,7 @@ Built with **FastAPI**, **Jinja2**, **Tailwind CSS**, and **Alpine.js**, shipped
    * Protected with `ADMIN_PASSWORD` (timing-safe check with `hmac.compare_digest`).
    * **Searchable combobox:** Select existing players or add new players directly from the dropdown.
    * **Duplicate & minimum player validation:** Prevents duplicate player rows in a single match and requires at least 2 players.
-   * **Match winner scoring:** Toggle winner(s) with 🏆. A single winner scores `-10` points; multiple tied winners score `0` points; other players submit whole number penalty points ($> 0$).
+   * **Crown scoring:** Each row cycles through crowns with clicks: 🥇 **gold** (the player who called Alfredo and won) scores `-10`; 🥈 **silver** scores `0`; ⚫ **black** (the failed Alfredo call) scores editable penalty points (default `+10`). Gold is only assignable while no silver or black crown is on the board, and assigning a second gold flips both to silver with a required points field. A match must have exactly one black crown, unless exactly one gold is assigned (the caller won, so there is no failed call to penalise). Other players submit whole number penalty points ($> 0$).
 
 6. **Alfredo Card Game Simulator (`/alfredo`):**
    * Full bot-vs-bot simulation engine driven by the complete rule set in [`alfredoRuleSet.md`](alfredoRuleSet.md).

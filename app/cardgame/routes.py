@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hmac
-from typing import Any
+from typing import Any, Final
 
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
@@ -12,7 +12,13 @@ from starlette.datastructures import FormData
 
 from .config import Config
 from .models import PLACEHOLDER_ABSENT, PlayerStats
-from .stats import WIN_POINTS, build_history_rows, build_leaderboards, compute_global_stats
+from .stats import (
+    PENALTY_POINTS,
+    WIN_POINTS,
+    build_history_rows,
+    build_leaderboards,
+    compute_global_stats,
+)
 from .storage import Storage
 
 #: Session key holding queued flash messages as (category, message) pairs.
@@ -20,6 +26,18 @@ FLASH_SESSION_KEY = "flashes"
 
 #: Minimum number of players required to register a match (mirrors match-form.js).
 MIN_PLAYERS_PER_MATCH = 2
+
+#: Crown states a match row can carry (mirrors match-form.js).
+#: - gold: the player who called Alfredo and won -> WIN_POINTS, points not applicable.
+#: - silver: 0 points (or user-entered points when two golds collided).
+#: - black: the failed Alfredo call -> editable penalty points, required.
+CROWN_NONE: Final[str] = "none"
+CROWN_GOLD: Final[str] = "gold"
+CROWN_SILVER: Final[str] = "silver"
+CROWN_BLACK: Final[str] = "black"
+VALID_CROWNS: Final[frozenset[str]] = frozenset(
+    {CROWN_NONE, CROWN_GOLD, CROWN_SILVER, CROWN_BLACK}
+)
 
 
 def _getlist(form: FormData, key: str) -> list[str]:
@@ -92,6 +110,7 @@ def create_router(
                 "dev_mode": config.dev_mode,
                 "require_password": not config.dev_mode,
                 "win_points": WIN_POINTS,
+                "penalty_points": PENALTY_POINTS,
             },
         )
 
@@ -123,16 +142,30 @@ def create_router(
         data = storage.load()
         names = _getlist(form, "player_name[]")
         points_list = _getlist(form, "player_points[]")
-        winners_list = _getlist(form, "player_winner[]")
+        crowns_list = _getlist(form, "player_crown[]")
+        # Submissions without the crown field (older clients) count every row
+        # as no crown instead of dropping the whole match.
+        crowns_list += [CROWN_NONE] * (len(names) - len(crowns_list))
 
-        # First pass: validate the entries. A winner's score depends on how many
-        # winners the match has, so it is only resolved in the second pass.
+        def valid_points(pts_str: str) -> float | None:
+            """Whole number of points strictly greater than zero, or None."""
+            try:
+                pts = float(pts_str)
+            except ValueError:
+                return None
+            if pts <= 0 or not pts.is_integer():
+                return None
+            return pts
+
+        # First pass: validate the entries. Crown states are counted here and
+        # cross-checked against the match rules in a second pass.
         scored: list[tuple[str, float]] = []
-        winners: list[str] = []
+        gold_count = 0
+        black_count = 0
         seen: set[str] = set()
         duplicates: list[str] = []
         invalid: list[str] = []
-        for name, pts_str, winner_flag in zip(names, points_list, winners_list):
+        for name, pts_str, crown in zip(names, points_list, crowns_list):
             name = name.strip()
             if not name:
                 continue
@@ -145,30 +178,70 @@ def create_router(
                 continue
             seen.add(key)
 
-            if winner_flag == "1":
-                winners.append(name)
+            if crown not in VALID_CROWNS:
+                crown = CROWN_NONE
+
+            if crown == CROWN_GOLD:
+                # The player who called Alfredo and won: fixed winning score.
+                gold_count += 1
+                scored.append((name, WIN_POINTS))
                 continue
 
-            try:
-                pts = float(pts_str)
-            except ValueError:
-                invalid.append(name)
+            if crown == CROWN_SILVER:
+                # Double-click silver scores a fixed 0 (field hidden); a silver
+                # born from a gold collision carries user-entered points.
+                if pts_str == "":
+                    scored.append((name, 0.0))
+                    continue
+                pts = valid_points(pts_str)
+                if pts is None:
+                    invalid.append(name)
+                    continue
+                scored.append((name, pts))
                 continue
-            # Losers must enter a whole number of points strictly greater than
-            # zero (mirrors the min="1" step="1" input in index.html).
-            if pts <= 0 or not pts.is_integer():
+
+            if crown == CROWN_BLACK:
+                # The failed Alfredo call: editable penalty points.
+                pts = valid_points(pts_str)
+                if pts is None:
+                    invalid.append(name)
+                    continue
+                black_count += 1
+                scored.append((name, pts))
+                continue
+
+            # No crown: plain loser, points required (mirrors the min="1"
+            # step="1" input in index.html).
+            pts = valid_points(pts_str)
+            if pts is None:
                 invalid.append(name)
                 continue
             scored.append((name, pts))
 
-        # A lone winner takes the fixed winning score; when several players win
-        # together nobody gains, so each of them scores 0.
-        win_pts = WIN_POINTS if len(winners) == 1 else 0.0
-        scored.extend((name, win_pts) for name in winners)
+        # Match-level crown rules (mirrors the client-side submit gate in
+        # match-form.js):
+        # - the gold crown (caller won) excludes the black crown (failed call);
+        # - otherwise exactly one black crown must be assigned.
+        crown_error: str | None = None
+        if gold_count > 1:
+            crown_error = (
+                "Pi\u00f9 corone oro non sono valide: se vincono pi\u00f9 giocatori "
+                "usate le corone argento."
+            )
+        elif gold_count == 1 and black_count > 0:
+            crown_error = (
+                "La corona oro (chi ha chiamato Alfredo e vinto) esclude la corona "
+                "nera (chiamata fallita)."
+            )
+        elif gold_count == 0 and black_count != 1:
+            crown_error = (
+                "Serve esattamente una corona nera (la chiamata Alfredo fallita), "
+                "a meno che non ci sia un solo vincitore con la corona oro."
+            )
 
         updated_count = len(scored)
 
-        if updated_count >= MIN_PLAYERS_PER_MATCH:
+        if updated_count >= MIN_PLAYERS_PER_MATCH and crown_error is None:
             # Determine the current match index across all existing players before adding this match.
             # Any player who is already registered but did not participate in this match gets the placeholder.
             active_names = {name for name, _ in scored}
@@ -199,12 +272,14 @@ def create_router(
                 f"Punteggi aggiornati con successo per {updated_count} giocatore/i!",
                 "success",
             )
-        else:
+        elif updated_count < MIN_PLAYERS_PER_MATCH:
             flash(
                 request,
                 f"Servono almeno {MIN_PLAYERS_PER_MATCH} giocatori per registrare una partita.",
                 "warning",
             )
+        else:
+            flash(request, crown_error or "Corone non valide.", "warning")
 
         if duplicates:
             flash(
