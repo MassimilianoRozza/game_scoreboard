@@ -22,12 +22,27 @@
     const knownPlayers = (knownData ? JSON.parse(knownData.textContent) : [])
         .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 
-    // A match may have several winners: a lone winner takes the fixed winning
-    // score, but when more than one player wins nobody gains, so they all score
-    // 0 (mirrors the server-side rule in routes.py).
-    const initialBadge = container.querySelector(".win-badge");
-    const WIN_POINTS_LABEL = initialBadge ? initialBadge.textContent.trim() : "";
-    const TIE_POINTS_LABEL = "0";
+    // Crown states per row (mirrors the server-side rules in routes.py):
+    // none -> gold -> silver -> black -> gold ... (the cycle skips gold when it
+    // is not assignable). Gold = the player who called Alfredo and won
+    // (WIN_POINTS, points not applicable); silver = 0 points (points not
+    // applicable, or user-entered after a gold collision); black = the failed
+    // Alfredo call (editable penalty points). Gold is assignable only while no
+    // silver or black crown is on the board; black only while no gold is.
+    // A match needs exactly one black crown unless exactly one gold is assigned.
+    const CROWN_NONE = "none";
+    const CROWN_GOLD = "gold";
+    const CROWN_SILVER = "silver";
+    const CROWN_BLACK = "black";
+
+    const crownButtonTemplate = container.querySelector(".crown-toggle");
+    const WIN_POINTS_LABEL = crownButtonTemplate && crownButtonTemplate.dataset.winPoints
+        ? crownButtonTemplate.dataset.winPoints
+        : "";
+    const PENALTY_POINTS_LABEL = crownButtonTemplate && crownButtonTemplate.dataset.penaltyPoints
+        ? crownButtonTemplate.dataset.penaltyPoints
+        : "10";
+    const SILVER_POINTS_LABEL = "0";
 
     function nameInOtherRows(name, exceptInput) {
         const target = name.trim().toLowerCase();
@@ -109,60 +124,161 @@
         return count;
     }
 
+    // A match is valid when it has exactly one black crown (the failed Alfredo
+    // call), except when exactly one gold crown is assigned: the player who
+    // called Alfredo and won, so there is no failed call to penalise (mirrors
+    // the server-side check in routes.py). Crowns on unnamed rows are ignored.
+    function crownsValid() {
+        const gold = crownCount(CROWN_GOLD);
+        const black = crownCount(CROWN_BLACK);
+        if (gold === 1) {
+            return black === 0;
+        }
+        return gold === 0 && black === 1;
+    }
+
     function updateSubmitState() {
         if (!submitButton) {
             return;
         }
         const count = filledPlayerCount();
-        const enabled = count >= MIN_PLAYERS;
+        let reason = "";
+        if (count < MIN_PLAYERS) {
+            reason = "Servono almeno " + MIN_PLAYERS + " giocatori per registrare una partita";
+        } else if (!crownsValid()) {
+            reason = "Serve esattamente una corona nera (chiamata Alfredo fallita), "
+                + "a meno che non ci sia un solo vincitore con la corona oro";
+        }
+        const enabled = reason === "";
         submitButton.disabled = !enabled;
         submitButton.classList.toggle("opacity-50", !enabled);
         submitButton.classList.toggle("cursor-not-allowed", !enabled);
-        submitButton.title = enabled
-            ? ""
-            : "Servono almeno " + MIN_PLAYERS + " giocatori per registrare una partita";
+        submitButton.title = reason;
     }
 
-    function winnerCount() {
+    function crownFlag(row) {
+        return row.querySelector("input[name='player_crown[]']");
+    }
+
+    function crownOf(row) {
+        return crownFlag(row).value || CROWN_NONE;
+    }
+
+    // Count crowns over rows that actually carry a player name: unnamed rows
+    // are skipped by the server, so they must not lock crowns either.
+    function crownCount(crown) {
         let count = 0;
-        for (const flag of container.querySelectorAll("input[name='player_winner[]']")) {
-            if (flag.value === "1") {
+        for (const row of container.querySelectorAll(".player-row")) {
+            const name = row.querySelector("input[name='player_name[]']").value.trim();
+            if (name && crownOf(row) === crown) {
                 count += 1;
             }
         }
         return count;
     }
 
-    // Keep every winner badge showing the score that will actually be recorded.
-    function updateWinBadges() {
-        const label = winnerCount() === 1 ? WIN_POINTS_LABEL : TIE_POINTS_LABEL;
-        for (const badge of container.querySelectorAll(".win-badge")) {
-            badge.textContent = label;
+    // Gold is assignable only while no silver or black crown is on the board;
+    // black only while no gold crown is. Silver is always assignable.
+    function crownAssignable(crown) {
+        if (crown === CROWN_GOLD) {
+            return crownCount(CROWN_SILVER) === 0 && crownCount(CROWN_BLACK) === 0;
+        }
+        if (crown === CROWN_BLACK) {
+            return crownCount(CROWN_GOLD) === 0;
+        }
+        return true;
+    }
+
+    // The next crown in the cycle for a row, skipping states it cannot take.
+    function nextCrown(row, current) {
+        const order = [CROWN_GOLD, CROWN_SILVER, CROWN_BLACK].filter(crownAssignable);
+        const index = order.indexOf(current);
+        // If the row's current crown is no longer assignable (e.g. it holds
+        // gold while another crown now blocks it), restart from the first
+        // assignable crown instead of wrapping around.
+        return index === -1 ? order[0] : order[(index + 1) % order.length];
+    }
+
+    // Paint one row to match its crown flag: button glyph/colour, badge, and
+    // the points field (hidden for gold and plain silver, shown for black and
+    // for silvers born from a gold collision).
+    function applyCrown(row) {
+        const crown = crownOf(row);
+        const button = row.querySelector(".crown-toggle");
+        const points = row.querySelector("input[name='player_points[]']");
+        const badge = row.querySelector(".crown-badge");
+        const collision = row.dataset.crownCollision === "1";
+
+        button.textContent = crown === CROWN_GOLD ? "🥇"
+            : crown === CROWN_SILVER ? "🥈"
+            : crown === CROWN_BLACK ? "⚫" : "🏆";
+        button.setAttribute("aria-pressed", crown === CROWN_NONE ? "false" : "true");
+        button.classList.toggle("opacity-40", crown === CROWN_NONE);
+        button.classList.toggle("bg-yellow-100", crown === CROWN_GOLD);
+        button.classList.toggle("bg-gray-200", crown === CROWN_SILVER);
+        button.classList.toggle("bg-gray-800", crown === CROWN_BLACK);
+
+        // The points field applies to: no crown (plain loser), black (editable
+        // penalty) and silvers born from a gold collision. Gold and plain
+        // silver have fixed scores, so the field is hidden (but still submits).
+        const pointsApplicable = crown === CROWN_NONE || crown === CROWN_BLACK
+            || (crown === CROWN_SILVER && collision);
+        // Hidden inputs still submit, so the parallel arrays stay aligned.
+        points.classList.toggle("hidden", !pointsApplicable);
+        points.required = pointsApplicable;
+
+        if (crown === CROWN_GOLD) {
+            badge.textContent = WIN_POINTS_LABEL;
+            badge.classList.remove("hidden");
+        } else if (crown === CROWN_SILVER && !collision) {
+            badge.textContent = SILVER_POINTS_LABEL;
+            badge.classList.remove("hidden");
+        } else if (crown === CROWN_BLACK) {
+            badge.textContent = points.value || PENALTY_POINTS_LABEL;
+            badge.classList.remove("hidden");
+        } else {
+            badge.textContent = "";
+            badge.classList.add("hidden");
         }
     }
 
-    function applyWinner(row, isWinner) {
-        const button = row.querySelector(".winner-toggle");
-        const flag = row.querySelector("input[name='player_winner[]']");
-        const points = row.querySelector("input[name='player_points[]']");
-        const badge = row.querySelector(".win-badge");
-
-        flag.value = isWinner ? "1" : "0";
-        button.setAttribute("aria-pressed", isWinner ? "true" : "false");
-        button.classList.toggle("bg-yellow-100", isWinner);
-        button.classList.toggle("opacity-40", !isWinner);
-        // Hidden inputs still submit, so the parallel arrays stay aligned.
-        points.classList.toggle("hidden", isWinner);
-        points.required = !isWinner;
-        badge.classList.toggle("hidden", !isWinner);
+    // Repaint every row and refresh the submit gate after any crown change.
+    function refreshCrowns() {
+        for (const row of container.querySelectorAll(".player-row")) {
+            applyCrown(row);
+        }
+        updateSubmitState();
     }
 
-    function toggleWinner(row) {
-        const wasWinner = row.querySelector("input[name='player_winner[]']").value === "1";
-        // Any number of players may win the same match; clicking again clears
-        // that row's flag without touching the others.
-        applyWinner(row, !wasWinner);
-        updateWinBadges();
+    function cycleCrown(row) {
+        const current = crownOf(row);
+        const next = nextCrown(row, current);
+        if (next === CROWN_GOLD && crownCount(CROWN_GOLD) >= 1) {
+            // Assigning a second gold collides: every gold crown (this row
+            // included) flips to silver and its points field becomes
+            // applicable, empty and required.
+            for (const other of container.querySelectorAll(".player-row")) {
+                if (other === row || crownOf(other) === CROWN_GOLD) {
+                    crownFlag(other).value = CROWN_SILVER;
+                    other.dataset.crownCollision = "1";
+                    other.querySelector("input[name='player_points[]']").value = "";
+                }
+            }
+        } else {
+            crownFlag(row).value = next;
+            delete row.dataset.crownCollision;
+            if (next === CROWN_BLACK) {
+                const points = row.querySelector("input[name='player_points[]']");
+                if (!points.value) {
+                    points.value = PENALTY_POINTS_LABEL;
+                }
+            }
+        }
+        refreshCrowns();
+        const crown = crownOf(row);
+        if (crown === CROWN_BLACK || row.dataset.crownCollision === "1") {
+            row.querySelector("input[name='player_points[]']").focus();
+        }
     }
 
     function focusPoints(row) {
@@ -188,8 +304,7 @@
             nameInput.value = name;
         }
         container.appendChild(fragment);
-        applyWinner(row, false);
-        updateWinBadges();
+        applyCrown(row);
         updateSubmitState();
         (name ? row.querySelector("input[name='player_points[]']") : nameInput).focus();
         if (!name) {
@@ -203,13 +318,13 @@
     });
 
     // Reflect the initial state (the first empty row means the button starts off).
-    updateSubmitState();
+    refreshCrowns();
 
     // Dropdown interactions (delegated on the container).
     container.addEventListener("click", function (event) {
-        const winnerBtn = event.target.closest(".winner-toggle");
-        if (winnerBtn) {
-            toggleWinner(winnerBtn.closest(".player-row"));
+        const crownBtn = event.target.closest(".crown-toggle");
+        if (crownBtn) {
+            cycleCrown(crownBtn.closest(".player-row"));
             return;
         }
 
@@ -217,8 +332,7 @@
         if (removeBtn) {
             if (container.getElementsByClassName("player-row").length > 1) {
                 removeBtn.closest(".player-row").remove();
-                updateWinBadges();
-                updateSubmitState();
+                refreshCrowns();
             } else {
                 alert("Devi includere almeno un giocatore.");
             }
@@ -256,6 +370,15 @@
         if (event.target.matches(".player-search")) {
             renderDropdown(event.target.closest(".player-picker"));
             updateSubmitState();
+            return;
+        }
+        if (event.target.matches("input[name='player_points[]']")) {
+            // Keep the black crown badge in sync with the edited penalty.
+            const row = event.target.closest(".player-row");
+            if (row && crownOf(row) === CROWN_BLACK) {
+                const badge = row.querySelector(".crown-badge");
+                badge.textContent = event.target.value || PENALTY_POINTS_LABEL;
+            }
         }
     });
 

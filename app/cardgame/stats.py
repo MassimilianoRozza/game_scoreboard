@@ -17,6 +17,11 @@ C_FRACTION = 0.3
 #: Points recorded for the player who wins a match (lower is better).
 WIN_POINTS: float = -10.0
 
+#: Default points for the black crown (the failed Alfredo call). The field is
+#: editable, so this is only the client-side default; the server accepts any
+#: whole number greater than zero.
+PENALTY_POINTS: float = 10.0
+
 
 def bayesian_average(total_points: float, matches: int, c: float, mean: float) -> float:
     """Bayesian average: ``(C * M + total_points) / (C + matches)``."""
